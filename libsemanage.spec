@@ -3,15 +3,12 @@
 Summary: SELinux binary policy manipulation library 
 Name: libsemanage
 Version: 2.0.43
-Release: 4.2%{?dist}
+Release: 4%{?dist}
 License: LGPLv2+
 Group: System Environment/Libraries
 Source: http://www.nsa.gov/selinux/archives/libsemanage-%{version}.tgz
 Patch: libsemanage-rhat.patch
-Patch1: libsemanage-umask.patch
-Patch2: libsemanage-RHEL6_4.patch
 URL: http://www.selinuxproject.org
-Source1: semanage.conf
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires: libselinux-devel >= %{libselinuxver} swig ustr-devel
@@ -65,8 +62,6 @@ SELinux management applications.
 %prep
 %setup -q
 %patch -p1 -b .rhat
-%patch1 -p2 -b .umask
-%patch2 -p1 -b .RHEL6_4
 
 %build
 make clean
@@ -80,7 +75,6 @@ mkdir -p ${RPM_BUILD_ROOT}/%{_lib}
 mkdir -p ${RPM_BUILD_ROOT}/%{_libdir} 
 mkdir -p ${RPM_BUILD_ROOT}%{_includedir} 
 make DESTDIR="${RPM_BUILD_ROOT}" LIBDIR="${RPM_BUILD_ROOT}%{_libdir}" SHLIBDIR="${RPM_BUILD_ROOT}/%{_lib}" install install-pywrap
-cp %{SOURCE1} ${RPM_BUILD_ROOT}/etc/selinux/semanage.conf
 ln -sf  /%{_lib}/libsemanage.so.1 ${RPM_BUILD_ROOT}/%{_libdir}/libsemanage.so
 
 %clean
@@ -112,14 +106,6 @@ rm -rf ${RPM_BUILD_ROOT}
 %{_libdir}/python*/site-packages/*
 
 %changelog
-* Mon Oct 15 2012 Miroslav Grepl <mgrepl@redhat.com> - 2.0.43-4.2
-- * Add usepasswd flag to semanage.conf to disable genhomedircon using passwd
-Resolves:#798332
-
-* Wed Oct 19 2011 Dan Walsh <dwalsh@redhat.com> - 2.0.43-4.1
--    Fix handling of umask, so files get created with the correct label.
-Resolves: #747345
-
 * Thu Jan 28 2010 Dan Walsh <dwalsh@redhat.com> - 2.0.43-4
 - Cleanup spec file
 Resolves: #555835
