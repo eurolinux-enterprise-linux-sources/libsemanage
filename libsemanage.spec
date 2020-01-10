@@ -7,11 +7,11 @@
 Summary: SELinux binary policy manipulation library 
 Name: libsemanage
 Version: 2.5
-Release: 4%{?dist}
+Release: 5.1%{?dist}
 License: LGPLv2+
 Group: System Environment/Libraries
 Source: https://raw.githubusercontent.com/wiki/SELinuxProject/selinux/files/releases/20160223/libsemanage-2.5.tar.gz
-# HEAD c3d897c9cec9558c82e8d004ee467eec9b300843
+# HEAD 35a30caa510af052783f8ca0b77ec2d7c71e2154
 Patch1: libsemanage-rhel.patch
 URL: https://github.com/SELinuxProject/selinux/wiki
 Source1: semanage.conf
@@ -191,6 +191,9 @@ rm -rf ${RPM_BUILD_ROOT}
 %endif # if with_python3
 
 %changelog
+* Mon Nov 21 2016 Petr Lautrbach <plautrba@redhat.com> - 2.5-5.1
+- Re-add get/set_version functions needed for semodule -l (#1392573)
+
 * Fri Aug 26 2016 Petr Lautrbach <plautrba@redhat.com> 2.5-4
 - genhomedircon: add support for %group syntax
 - genhomedircon: generate contexts for logins mapped to the default user

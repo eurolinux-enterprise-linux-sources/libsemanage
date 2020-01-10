@@ -29,6 +29,57 @@ index 6cad529..c816590 100644
  int semanage_access_check(semanage_handle_t * sh);
  
  /* returns 0 if not connected, 1 if connected */
+diff --git libsemanage-2.5/include/semanage/modules.h libsemanage-2.5/include/semanage/modules.h
+index 4b93e54..50940e2 100644
+--- libsemanage-2.5/include/semanage/modules.h
++++ libsemanage-2.5/include/semanage/modules.h
+@@ -39,7 +39,7 @@ int semanage_module_install_file(semanage_handle_t *,
+ int semanage_module_remove(semanage_handle_t *, char *module_name);
+ 
+ /* semanage_module_info is for getting information on installed
+-   modules, only name at this time */
++   modules, only name and version at this time */
+ typedef struct semanage_module_info semanage_module_info_t;
+ 
+ /* Look up a module using @modkey. The module's raw data is returned as a
+@@ -64,6 +64,7 @@ void semanage_module_info_datum_destroy(semanage_module_info_t *);
+ semanage_module_info_t *semanage_module_list_nth(semanage_module_info_t * list,
+ 						 int n);
+ const char *semanage_module_get_name(semanage_module_info_t *);
++const char *semanage_module_get_version(semanage_module_info_t *);
+ 
+ /* Module Info */
+ 
+@@ -104,6 +105,14 @@ int semanage_module_info_get_name(semanage_handle_t *sh,
+ 				  semanage_module_info_t *modinfo,
+ 				  const char **name);
+ 
++/* Get @module_version from @modinfo. Caller should not free @module_version.
++ *
++ * Returns 0 on success and -1 on error.
++ */
++int semanage_module_info_get_version(semanage_handle_t *sh,
++				      semanage_module_info_t *modinfo,
++				      const char **version);
++
+ /* Get @lang_ext from @modinfo. Caller should not free @lang_ext.
+  *
+  * Returns 0 on success and -1 on error.
+@@ -138,6 +147,14 @@ int semanage_module_info_set_name(semanage_handle_t *sh,
+ 				  semanage_module_info_t *modinfo,
+ 				  const char *name);
+ 
++/* Set @version in @modinfo.
++ *
++ * Returns 0 on success and -1 on error.
++ */
++int semanage_module_info_set_version(semanage_handle_t *sh,
++				      semanage_module_info_t *modinfo,
++				      const char *version);
++
+ /* Set @lang_ext in @modinfo.
+  *
+  * Returns 0 on success and -1 on error.
 diff --git libsemanage-2.5/man/man5/semanage.conf.5 libsemanage-2.5/man/man5/semanage.conf.5
 index 8f8de55..1009d97 100644
 --- libsemanage-2.5/man/man5/semanage.conf.5
@@ -112,6 +163,78 @@ index e460379..6a4a164 100644
  	int (*cache) (struct semanage_handle * handle, dbase_t * dbase);
  
  	/* Forgets all changes that haven't been written
+diff --git libsemanage-2.5/src/direct_api.c libsemanage-2.5/src/direct_api.c
+index 2187b65..5644833 100644
+--- libsemanage-2.5/src/direct_api.c
++++ libsemanage-2.5/src/direct_api.c
+@@ -363,6 +363,35 @@ static int semanage_direct_begintrans(semanage_handle_t * sh)
+ 
+ /********************* utility functions *********************/
+ 
++/* Takes a module stored in 'module_data' and parses its headers.
++ * Sets reference variables 'module_name' to module's name, and
++ * 'version' to module's version.  The caller is responsible for
++ * free()ing 'module_name', and 'version'; they will be
++ * set to NULL upon entering this function.  Returns 0 on success, -1
++ * if out of memory.
++ */
++static int parse_module_headers(semanage_handle_t * sh, char *module_data,
++                               size_t data_len, char **module_name,
++                               char **version)
++{
++       struct sepol_policy_file *pf;
++       int file_type;
++       *module_name = *version = NULL;
++
++       if (sepol_policy_file_create(&pf)) {
++               ERR(sh, "Out of memory!");
++               return -1;
++       }
++       sepol_policy_file_set_mem(pf, module_data, data_len);
++       sepol_policy_file_set_handle(pf, sh->sepolh);
++       if (module_data != NULL && data_len > 0)
++           sepol_module_package_info(pf, &file_type, module_name,
++                                     version);
++       sepol_policy_file_free(pf);
++
++       return 0;
++}
++
+ #include <stdlib.h>
+ #include <bzlib.h>
+ #include <string.h>
+@@ -2075,6 +2104,31 @@ static int semanage_direct_get_module_info(semanage_handle_t *sh,
+ 	free(tmp);
+ 	tmp = NULL;
+ 
++	if (strcmp((*modinfo)->lang_ext, "pp") == 0) {
++		/* try to get a module_version from hll file */
++		int data_len, compressed = 0;
++		char *data = NULL;
++		char fhll[PATH_MAX];
++		ret = semanage_module_get_path(sh,
++					       *modinfo,
++					       SEMANAGE_MODULE_PATH_HLL,
++					       fhll,
++					       sizeof(fhll));
++		if (ret == 0 && (access(fhll, R_OK) == 0)) {
++			if ((data_len = map_file(sh, fhll, &data, &compressed)) > 0) {
++
++				char *module_name = NULL;
++				char *version = NULL;
++				ret = parse_module_headers(sh, data, data_len, &module_name, &version);
++				if (ret == 0 && version != NULL) {
++					ret = semanage_module_info_set_version(sh, *modinfo, version);
++				}
++				free(module_name);
++				free(version);
++				munmap(data, data_len);
++			}
++		}
++	}
+ 	if (fclose(fp) != 0) {
+ 		ERR(sh,
+ 		    "Unable to close %s module lang ext file.",
 diff --git libsemanage-2.5/src/exception.sh libsemanage-2.5/src/exception.sh
 index 94619d2..d18959c 100644
 --- libsemanage-2.5/src/exception.sh
@@ -975,6 +1098,197 @@ index 1a9e87e..cce3884 100644
  	ignore_free();
  
  	return retval;
+diff --git libsemanage-2.5/src/libsemanage.map libsemanage-2.5/src/libsemanage.map
+index 34b553d..41841e1 100644
+--- libsemanage-2.5/src/libsemanage.map
++++ libsemanage-2.5/src/libsemanage.map
+@@ -40,10 +40,12 @@ LIBSEMANAGE_1.1 {
+ 	  semanage_module_info_destroy;
+ 	  semanage_module_info_get_priority;
+ 	  semanage_module_info_get_name;
++	  semanage_module_info_get_version;
+ 	  semanage_module_info_get_lang_ext;
+ 	  semanage_module_info_get_enabled;
+ 	  semanage_module_info_set_priority;
+ 	  semanage_module_info_set_name;
++	  semanage_module_info_set_version;
+ 	  semanage_module_info_set_lang_ext;
+ 	  semanage_module_info_set_enabled;
+ 	  semanage_module_key_create;
+diff --git libsemanage-2.5/src/module_internal.h libsemanage-2.5/src/module_internal.h
+index c99f6c2..d62091a 100644
+--- libsemanage-2.5/src/module_internal.h
++++ libsemanage-2.5/src/module_internal.h
+@@ -11,10 +11,12 @@ hidden_proto(semanage_module_get_name)
+     hidden_proto(semanage_module_info_destroy)
+     hidden_proto(semanage_module_info_get_priority)
+     hidden_proto(semanage_module_info_get_name)
++    hidden_proto(semanage_module_info_get_version)
+     hidden_proto(semanage_module_info_get_lang_ext)
+     hidden_proto(semanage_module_info_get_enabled)
+     hidden_proto(semanage_module_info_set_priority)
+     hidden_proto(semanage_module_info_set_name)
++    hidden_proto(semanage_module_info_set_version)
+     hidden_proto(semanage_module_info_set_lang_ext)
+     hidden_proto(semanage_module_info_set_enabled)
+     hidden_proto(semanage_module_key_create)
+diff --git libsemanage-2.5/src/modules.c libsemanage-2.5/src/modules.c
+index 90c5e49..85285a1 100644
+--- libsemanage-2.5/src/modules.c
++++ libsemanage-2.5/src/modules.c
+@@ -291,6 +291,7 @@ int semanage_module_info_destroy(semanage_handle_t *sh,
+ 	}
+ 
+ 	free(modinfo->name);
++	free(modinfo->module_version);
+ 	free(modinfo->lang_ext);
+ 
+ 	return semanage_module_info_init(sh, modinfo);
+@@ -306,6 +307,7 @@ int semanage_module_info_init(semanage_handle_t *sh,
+ 
+ 	modinfo->priority = 0;
+ 	modinfo->name = NULL;
++	modinfo->module_version = NULL;
+ 	modinfo->lang_ext = NULL;
+ 	modinfo->enabled = -1;
+ 
+@@ -341,6 +343,14 @@ int semanage_module_info_clone(semanage_handle_t *sh,
+ 		goto cleanup;
+ 	}
+ 
++	if (source->module_version != NULL) {
++		ret = semanage_module_info_set_version(sh, target, source->module_version);
++		if (ret != 0) {
++			status = -1;
++			goto cleanup;
++		}
++	}
++
+ 	ret = semanage_module_info_set_lang_ext(sh, target, source->lang_ext);
+ 	if (ret != 0) {
+ 		status = -1;
+@@ -388,6 +398,21 @@ int semanage_module_info_get_name(semanage_handle_t *sh,
+ 
+ hidden_def(semanage_module_info_get_name)
+ 
++int semanage_module_info_get_version(semanage_handle_t *sh,
++				  semanage_module_info_t *modinfo,
++				  const char **version)
++{
++	assert(sh);
++	assert(modinfo);
++	assert(version);
++
++	*version = modinfo->module_version;
++
++	return 0;
++}
++
++hidden_def(semanage_module_info_get_version)
++
+ int semanage_module_info_get_lang_ext(semanage_handle_t *sh,
+ 				      semanage_module_info_t *modinfo,
+ 				      const char **lang_ext)
+@@ -470,6 +495,37 @@ int semanage_module_info_set_name(semanage_handle_t *sh,
+ 
+ hidden_def(semanage_module_info_set_name)
+ 
++int semanage_module_info_set_version(semanage_handle_t *sh,
++                                    semanage_module_info_t *modinfo,
++                                    const char *version)
++{
++       assert(sh);
++       assert(modinfo);
++       assert(version);
++
++       char * tmp;
++
++       /* Verify version */
++
++       if (semanage_module_validate_version(version) < 0) {
++               errno = 0;
++               return -1;
++       }
++
++       tmp = strdup(version);
++       if (!tmp) {
++               return -1;
++       }
++
++       free(modinfo->module_version);
++       modinfo->module_version = tmp;
++
++       return 0;
++}
++
++hidden_def(semanage_module_info_set_version)
++
++
+ int semanage_module_info_set_lang_ext(semanage_handle_t *sh,
+ 				      semanage_module_info_t *modinfo,
+ 				      const char *lang_ext)
+@@ -1064,6 +1120,49 @@ exit:
+ 	return status;
+ }
+ 
++/* Validate version.
++ *
++ * A version must match the following regular expression to be
++ * considered valid:
++ *
++ * ^[:print:]+$
++ *
++ * returns 0 if version is valid, returns -1 otherwise.
++ */
++int semanage_module_validate_version(const char *version)
++{
++	int status = 0;
++
++	if (version == NULL) {
++		status = -1;
++		goto exit;
++	}
++
++	/* must start with a printable char */
++	if (!isprint(*version)) {
++		status = -1;
++		goto exit;
++	}
++
++	/* everything else must be printable */
++#define ISVALIDCHAR(c) (isprint(c))
++
++	for (version++; *version; version++) {
++		if (ISVALIDCHAR(*version)) {
++			continue;
++		}
++		status = -1;
++		goto exit;
++	}
++
++#undef ISVALIDCHAR
++
++exit:
++	return status;
++}
++
++
++
+ int semanage_module_get_module_info(semanage_handle_t *sh,
+ 				    const semanage_module_key_t *modkey,
+ 				    semanage_module_info_t **modinfo)
+diff --git libsemanage-2.5/src/modules.h libsemanage-2.5/src/modules.h
+index 8a5c01f..ee3d51d 100644
+--- libsemanage-2.5/src/modules.h
++++ libsemanage-2.5/src/modules.h
+@@ -44,6 +44,7 @@ struct semanage_module_info {
+ 	uint16_t priority;	/* key, module priority */
+ 	char *name;		/* key, module name */
+ 	char *lang_ext;		/* module source language extension */
++	char *module_version;	/* module version, applies only for pp modules  */
+ 	int enabled;		/* module enabled/disabled status */
+ };
+ 
 diff --git libsemanage-2.5/src/semanage_store.c libsemanage-2.5/src/semanage_store.c
 index fa0876f..ca29257 100644
 --- libsemanage-2.5/src/semanage_store.c
