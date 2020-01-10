@@ -1,17 +1,17 @@
 %global with_python3 0
 %{!?python_sitearch: %global python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print (get_python_lib(1))")}
 
-%define libsepolver 2.5-8
-%define libselinuxver 2.5-12
+%define libsepolver 2.5-10
+%define libselinuxver 2.5-14
 
 Summary: SELinux binary policy manipulation library 
 Name: libsemanage
 Version: 2.5
-Release: 11%{?dist}
+Release: 14%{?dist}
 License: LGPLv2+
 Group: System Environment/Libraries
 Source: https://raw.githubusercontent.com/wiki/SELinuxProject/selinux/files/releases/20160223/libsemanage-2.5.tar.gz
-# HEAD 5a336c116e3808e21a2334671fffed73348111c9
+# HEAD abf13a864699272ea826b0f8ff993027a342b377
 Patch1: libsemanage-rhel.patch
 URL: https://github.com/SELinuxProject/selinux/wiki
 Source1: semanage.conf
@@ -193,6 +193,18 @@ rm -rf ${RPM_BUILD_ROOT}
 %endif # if with_python3
 
 %changelog
+* Tue Sep 11 2018 Vit Mojzis <vmojzis@redhat.com> - 2.5-14
+- Include user name in ROLE_REMOVE audit events (#1622045)
+- Improve "reset umask before creating directories"
+
+* Wed Jul 25 2018 Vit Mojzis <vmojzis@redhat.com> - 2.5-13
+- Reset umask before creating directories (#1186422)
+- Enable listing modules by name (#1566729)
+
+* Mon Apr 30 2018 Vit Mojzis <vmojzis@redhat.com> - 2.5-12
+- Do not change file mode of seusers and users_extra (#1512639)
+- Improve warning for installing disabled module (#1337199)
+
 * Tue Feb 27 2018 Vit Mojzis <vmojzis@redhat.com> - 2.5-11
 - Add dependencies on libselinux and libsemanage (#1548020)
 
