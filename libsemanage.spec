@@ -1,17 +1,17 @@
 %global with_python3 0
 %{!?python_sitearch: %global python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print (get_python_lib(1))")}
 
-%define libsepolver 2.5-10
-%define libselinuxver 2.5-14
+%define libsepolver 2.5-3
+%define libselinuxver 2.5-6
 
 Summary: SELinux binary policy manipulation library 
 Name: libsemanage
 Version: 2.5
-Release: 14%{?dist}
+Release: 4%{?dist}
 License: LGPLv2+
 Group: System Environment/Libraries
 Source: https://raw.githubusercontent.com/wiki/SELinuxProject/selinux/files/releases/20160223/libsemanage-2.5.tar.gz
-# HEAD abf13a864699272ea826b0f8ff993027a342b377
+# HEAD c3d897c9cec9558c82e8d004ee467eec9b300843
 Patch1: libsemanage-rhel.patch
 URL: https://github.com/SELinuxProject/selinux/wiki
 Source1: semanage.conf
@@ -26,8 +26,6 @@ BuildRequires: python3 python3-devel
 %endif # if with_python3
 
 Requires: bzip2-libs audit-libs
-Requires: libselinux >= %{libselinuxver}
-Requires: libsepol >= %{libsepolver}
 Conflicts: selinux-policy-base < 3.13.1-66
 
 %description
@@ -193,43 +191,6 @@ rm -rf ${RPM_BUILD_ROOT}
 %endif # if with_python3
 
 %changelog
-* Tue Sep 11 2018 Vit Mojzis <vmojzis@redhat.com> - 2.5-14
-- Include user name in ROLE_REMOVE audit events (#1622045)
-- Improve "reset umask before creating directories"
-
-* Wed Jul 25 2018 Vit Mojzis <vmojzis@redhat.com> - 2.5-13
-- Reset umask before creating directories (#1186422)
-- Enable listing modules by name (#1566729)
-
-* Mon Apr 30 2018 Vit Mojzis <vmojzis@redhat.com> - 2.5-12
-- Do not change file mode of seusers and users_extra (#1512639)
-- Improve warning for installing disabled module (#1337199)
-
-* Tue Feb 27 2018 Vit Mojzis <vmojzis@redhat.com> - 2.5-11
-- Add dependencies on libselinux and libsemanage (#1548020)
-
-* Wed Nov 29 2017 Petr Lautrbach <plautrba@redhat.com> - 2.5-10
-- Use umask(0077) for fopen() write operations (#1512639, #1512014)
-
-* Wed Oct 18 2017 Vit Mojzis <vmojzis@redhat.com> - 2.5-9
-- Update semanage to allow runtime labeling of Infiniband Pkeys (#1466274)
-- Update semanage to allow runtime labeling of ibendports (#1466274)
-- Keep copy of file_contexts.homedirs in policy store (#1409813)
-- Add support for listing fcontext.homedirs file (#1409813)
-
-* Wed May 03 2017 Petr Lautrbach <plautrba@redhat.com> - 2.5-8
-- Save linked policy, skip re-link when possible
-- Replace access(,F_OK) checks to make setuid programs work (#1186431)
-
-* Thu Mar 30 2017 Petr Lautrbach <plautrba@redhat.com> - 2.5-7.1
-- genhomedircon - improve handling large groups (#1379685)
-
-* Mon Mar 27 2017 Petr Lautrbach <plautrba@redhat.com> - 2.5-6.1
-- Remove access() check to make setuid programs work (#1186431)
-
-* Mon Nov 21 2016 Petr Lautrbach <plautrba@redhat.com> - 2.5-5.1
-- Re-add get/set_version functions needed for semodule -l (#1392573)
-
 * Fri Aug 26 2016 Petr Lautrbach <plautrba@redhat.com> 2.5-4
 - genhomedircon: add support for %group syntax
 - genhomedircon: generate contexts for logins mapped to the default user
