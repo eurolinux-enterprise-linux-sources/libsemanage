@@ -7,11 +7,11 @@
 Summary: SELinux binary policy manipulation library 
 Name: libsemanage
 Version: 2.5
-Release: 5.1%{?dist}
+Release: 8%{?dist}
 License: LGPLv2+
 Group: System Environment/Libraries
 Source: https://raw.githubusercontent.com/wiki/SELinuxProject/selinux/files/releases/20160223/libsemanage-2.5.tar.gz
-# HEAD 35a30caa510af052783f8ca0b77ec2d7c71e2154
+# HEAD acbfeb5f48dec866485b0fe72be6860ec8526809
 Patch1: libsemanage-rhel.patch
 URL: https://github.com/SELinuxProject/selinux/wiki
 Source1: semanage.conf
@@ -191,6 +191,16 @@ rm -rf ${RPM_BUILD_ROOT}
 %endif # if with_python3
 
 %changelog
+* Wed May 03 2017 Petr Lautrbach <plautrba@redhat.com> - 2.5-8
+- Save linked policy, skip re-link when possible
+- Replace access(,F_OK) checks to make setuid programs work (#1186431)
+
+* Thu Mar 30 2017 Petr Lautrbach <plautrba@redhat.com> - 2.5-7.1
+- genhomedircon - improve handling large groups (#1379685)
+
+* Mon Mar 27 2017 Petr Lautrbach <plautrba@redhat.com> - 2.5-6.1
+- Remove access() check to make setuid programs work (#1186431)
+
 * Mon Nov 21 2016 Petr Lautrbach <plautrba@redhat.com> - 2.5-5.1
 - Re-add get/set_version functions needed for semodule -l (#1392573)
 
